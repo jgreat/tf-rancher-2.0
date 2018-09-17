@@ -1,12 +1,3 @@
-# provider
-# ssh keys
-# Use default vnet
-# Use first subnet
-# create SG
-# create 3 nodes, ASG or raw nodes
-# place 80/443 tcp elb infront of the nodes.
-# use rke module?
-
 provider "aws" {
   profile = "${var.aws_profile}"
   region  = "${var.aws_region}"
@@ -23,18 +14,22 @@ resource "aws_key_pair" "ssh_key" {
   public_key = "${file(data.null_data_source.ssh.outputs["public_key_file"])}"
 }
 
-data "aws_ami" "rancheros" {
+data "aws_ami" "ami" {
   most_recent = true
-  owners      = ["605812595337"]
+  owners      = ["${lookup(var.ami, "${var.os}.owner")}"]
 
   filter {
     name   = "name"
-    values = ["rancheros-*"]
+    values = ["${lookup(var.ami, "${var.os}.name")}"]
   }
 
   filter {
     name   = "virtualization-type"
-    values = ["hvm"]
+    values = ["${lookup(var.ami, "${var.os}.virtualization_type")}"]
+  }
+  filter {
+    name = "root-device-type"
+    values = ["${lookup(var.ami, "${var.os}.root_device_type")}"]
   }
 }
 
@@ -141,12 +136,12 @@ resource "aws_security_group" "rancher" {
 }
 
 data "template_file" "cloud_config" {
-  template = "${file("${path.module}/cloud-config.yaml")}"
+  template = "${file("${path.module}/${var.os}-cloud-config.yaml")}"
 }
 
 resource "aws_instance" "rancher" {
   count         = "${var.node_count}"
-  ami           = "${data.aws_ami.rancheros.image_id}"
+  ami           = "${data.aws_ami.ami.image_id}"
   instance_type = "${var.instance_type}"
   key_name      = "${aws_key_pair.ssh_key.id}"
   user_data     = "${data.template_file.cloud_config.rendered}"
@@ -252,42 +247,42 @@ EOF
   }
 }
 
-# Render file and run RKE when the file changes.
+# Render RKE config file.
 resource "local_file" "rke" {
   content  = "${data.template_file.rke.rendered}"
   filename = "${path.module}/cluster.yml"
 
-  provisioner "local-exec" {
-    command = "sleep 120"
-  }
+  # provisioner "local-exec" {
+  #   command = "sleep 120"
+  # }
 
-  provisioner "local-exec" {
-    command = "rke up --config ${path.module}/cluster.yml 2>&1 | tee ${path.module}/rke_log.out"
-  }
+  # provisioner "local-exec" {
+  #   command = "rke up --config ${path.module}/cluster.yml 2>&1 | tee ${path.module}/rke_log.out"
+  # }
 
-  provisioner "local-exec" {
-    command = "KUBECONFIG=${path.module}/kube_config_cluster.yml kubectl -n kube-system create serviceaccount tiller"
-  }
+  # provisioner "local-exec" {
+  #   command = "KUBECONFIG=${path.module}/kube_config_cluster.yml kubectl -n kube-system create serviceaccount tiller"
+  # }
 
-  provisioner "local-exec" {
-    command = "KUBECONFIG=${path.module}/kube_config_cluster.yml kubectl create clusterrolebinding tiller --clusterrole cluster-admin --serviceaccount=kube-system:tiller"
-  }
+  # provisioner "local-exec" {
+  #   command = "KUBECONFIG=${path.module}/kube_config_cluster.yml kubectl create clusterrolebinding tiller --clusterrole cluster-admin --serviceaccount=kube-system:tiller"
+  # }
 
-  provisioner "local-exec" {
-    command = "KUBECONFIG=${path.module}/kube_config_cluster.yml helm init --service-account tiller --wait"
-  }
+  # provisioner "local-exec" {
+  #   command = "KUBECONFIG=${path.module}/kube_config_cluster.yml helm init --service-account tiller --wait"
+  # }
 
-  provisioner "local-exec" {
-    command = "KUBECONFIG=${path.module}/kube_config_cluster.yml helm repo add rancher-stable https://releases.rancher.com/server-charts/stable"
-  }
+  # provisioner "local-exec" {
+  #   command = "KUBECONFIG=${path.module}/kube_config_cluster.yml helm repo add rancher-stable https://releases.rancher.com/server-charts/stable"
+  # }
 
-  provisioner "local-exec" {
-    command = "KUBECONFIG=${path.module}/kube_config_cluster.yml helm install stable/cert-manager --name cert-manager --namespace kube-system --wait"
-  }
+  # provisioner "local-exec" {
+  #   command = "KUBECONFIG=${path.module}/kube_config_cluster.yml helm install stable/cert-manager --name cert-manager --namespace kube-system --wait"
+  # }
 
-  provisioner "local-exec" {
-    command = "KUBECONFIG=${path.module}/kube_config_cluster.yml helm install rancher-stable/rancher --name rancher --namespace cattle-system --set hostname=${var.server_name}.${var.domain_name} --wait"
-  }
+  # provisioner "local-exec" {
+  #   command = "KUBECONFIG=${path.module}/kube_config_cluster.yml helm install rancher-stable/rancher --name rancher --namespace cattle-system --set hostname=${var.server_name}.${var.domain_name} --wait"
+  # }
 
   provisioner "local-exec" {
     when = "destroy"

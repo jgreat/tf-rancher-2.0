@@ -5,3 +5,8 @@
 
 # Module directory
 .terraform/
+
+# Rke files
+rke.log.out
+kube_config_cluster.yml
+cluster.yml

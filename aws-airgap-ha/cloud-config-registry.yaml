@@ -1,0 +1,29 @@
+#cloud-config
+runcmd:
+- echo '${reg_user}:${reg_pass}' >/tmp/htpasswd
+rancher:
+  resize_device: /dev/nvme0n1
+  services:
+    registry:
+      image: registry:2
+      environment:
+        REGISTRY_AUTH_HTPASSWD_REALM: basic-realm
+        REGISTRY_AUTH_HTPASSWD_PATH: /tmp/htpasswd
+      ports:
+      - 5000:5000
+      volumes:
+      - /tmp/htpasswd:/tmp/htpasswd
+      - /var/lib/registry:/var/lib/registry
+    https:
+      image: tecnativa/haproxy-letsencrypt
+      environment:
+        PORT: 5000
+        DOMAINS: ${https_fqdn}
+        EMAIL: ${https_email}
+        STAGING: "false"
+        CONTINUE_ON_CERTONLY_FAILURE: "false"
+      ports:
+      - 80:80
+      - 443:443
+      links:
+      - registry:www
