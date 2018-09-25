@@ -27,8 +27,9 @@ data "aws_ami" "ami" {
     name   = "virtualization-type"
     values = ["${lookup(var.ami, "${var.os}.virtualization_type")}"]
   }
+
   filter {
-    name = "root-device-type"
+    name   = "root-device-type"
     values = ["${lookup(var.ami, "${var.os}.root_device_type")}"]
   }
 }
@@ -59,13 +60,6 @@ resource "aws_security_group" "rancher-elb" {
   ingress {
     from_port   = 443
     to_port     = 443
-    protocol    = "TCP"
-    cidr_blocks = ["0.0.0.0/0"]
-  }
-
-  ingress {
-    from_port   = 6443
-    to_port     = 6443
     protocol    = "TCP"
     cidr_blocks = ["0.0.0.0/0"]
   }
@@ -180,13 +174,6 @@ resource "aws_elb" "rancher" {
     lb_protocol       = "tcp"
   }
 
-  listener {
-    instance_port     = 6443
-    instance_protocol = "tcp"
-    lb_port           = 6443
-    lb_protocol       = "tcp"
-  }
-
   health_check {
     healthy_threshold   = 2
     unhealthy_threshold = 2
@@ -223,15 +210,16 @@ data "template_file" "rke_node" {
   template = <<EON
 - address: $${public_ip}
   internal_address: $${private_ip}
-  user: rancher
+  user: $${user}
   role: [ "controlplane", "etcd", "worker" ]
   ssh_key_file: $${ssh_private_key_file}
 EON
 
   vars {
-    public_ip           = "${element(aws_instance.rancher.*.public_ip, count.index)}"
-    private_ip          = "${element(aws_instance.rancher.*.private_ip, count.index)}"
+    public_ip            = "${element(aws_instance.rancher.*.public_ip, count.index)}"
+    private_ip           = "${element(aws_instance.rancher.*.private_ip, count.index)}"
     ssh_private_key_file = "${var.ssh_private_key_file}"
+    user                 = "${lookup(var.ami, "${var.os}.default_user")}"
   }
 }
 
@@ -252,41 +240,9 @@ resource "local_file" "rke" {
   content  = "${data.template_file.rke.rendered}"
   filename = "${path.module}/cluster.yml"
 
-  # provisioner "local-exec" {
-  #   command = "sleep 120"
-  # }
-
-  # provisioner "local-exec" {
-  #   command = "rke up --config ${path.module}/cluster.yml 2>&1 | tee ${path.module}/rke_log.out"
-  # }
-
-  # provisioner "local-exec" {
-  #   command = "KUBECONFIG=${path.module}/kube_config_cluster.yml kubectl -n kube-system create serviceaccount tiller"
-  # }
-
-  # provisioner "local-exec" {
-  #   command = "KUBECONFIG=${path.module}/kube_config_cluster.yml kubectl create clusterrolebinding tiller --clusterrole cluster-admin --serviceaccount=kube-system:tiller"
-  # }
-
-  # provisioner "local-exec" {
-  #   command = "KUBECONFIG=${path.module}/kube_config_cluster.yml helm init --service-account tiller --wait"
-  # }
-
-  # provisioner "local-exec" {
-  #   command = "KUBECONFIG=${path.module}/kube_config_cluster.yml helm repo add rancher-stable https://releases.rancher.com/server-charts/stable"
-  # }
-
-  # provisioner "local-exec" {
-  #   command = "KUBECONFIG=${path.module}/kube_config_cluster.yml helm install stable/cert-manager --name cert-manager --namespace kube-system --wait"
-  # }
-
-  # provisioner "local-exec" {
-  #   command = "KUBECONFIG=${path.module}/kube_config_cluster.yml helm install rancher-stable/rancher --name rancher --namespace cattle-system --set hostname=${var.server_name}.${var.domain_name} --wait"
-  # }
-
   provisioner "local-exec" {
-    when = "destroy"
-    command = "rm -f ${path.module}/kube_config_cluster.yml ${path.module}/rke_log.out"
+    when    = "destroy"
+    command = "rm -f ${path.module}/kube_config_cluster.yml"
   }
 }
 
