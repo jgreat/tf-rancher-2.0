@@ -242,7 +242,7 @@ resource "local_file" "rke" {
 
   provisioner "local-exec" {
     when    = "destroy"
-    command = "rm -f ${path.module}/kube_config_cluster.yml"
+    command = "rm -f ${path.module}/kube_config_cluster.yml ${path.module}/cluster.rkestate"
   }
 }
 
