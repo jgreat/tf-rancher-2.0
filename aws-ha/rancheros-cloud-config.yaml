@@ -2,4 +2,4 @@
 rancher:
   resize_device: /dev/nvme0n1
   docker:
-    engine: docker-17.03.2-ce
+    engine: docker-18.09.3-ce
