@@ -84,7 +84,7 @@ Updating the `rancher_version` will trigger a helm upgrade for the rancher chart
 
 Updating the `rke_version` will not trigger an ASG rolling update with this project.  Update `rke` in conjunction with an OS upgrade.
 
-### Percautions
+### Precautions
 
 * The lambda creates a lock file when starting the update process so only one node will update at a time.
 * `rke` snapshots of the `etcd` db are created and uploaded to s3 before add/remove steps.
