@@ -93,6 +93,10 @@ Updating the `rke_version` will not trigger an ASG rolling update with this proj
 
 You can follow the the Lambda as it runs in CloudWatch Log Groups under `/aws/lambda/<name>`
 
+## Destroying
+
+The helm provider for terraform doesn't wait for chart deployments to properly delete.  This may cause the rancher DNS records to be left behind.  Comment out the rancher `helm_release` resource and use `terraform apply` to remove the rancher install before doing a `terraform destroy`
+
 ## Were are all the files?
 
 This terraform creates an s3 bucket for storage of state and credentials.  `s3://<name>`
