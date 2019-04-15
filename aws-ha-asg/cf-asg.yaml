@@ -1,0 +1,73 @@
+Description: "CF Template for Terraform built ASG"
+Parameters:
+  Bucket:
+    Type: String
+  BaseClusterId:
+    Type: String
+  LambdaPermissionId:
+    Type: String
+  LaunchTemplateId:
+    Type: String
+  LaunchTemplateVersion:
+    Type: String
+  LoadBalancerNames:
+    Type: CommaDelimitedList
+  MinSize:
+    Type: String
+  MaxSize:
+    Type: String
+  Name:
+    Type: String
+  RoleARN:
+    Type: String
+  SnsARN:
+    Type: String
+  VPCZoneId:
+    Type: CommaDelimitedList
+  NotificationMetadata:
+    Type: String
+Resources:
+  ASG:
+    Type: AWS::AutoScaling::AutoScalingGroup
+    Properties:
+      Cooldown: 60
+      HealthCheckGracePeriod: 600
+      LaunchTemplate:
+        LaunchTemplateId: { Ref: LaunchTemplateId }
+        Version: { Ref: LaunchTemplateVersion }
+      LifecycleHookSpecificationList:
+      - DefaultResult: CONTINUE
+        HeartbeatTimeout: 900
+        LifecycleHookName: add-node
+        LifecycleTransition: autoscaling:EC2_INSTANCE_LAUNCHING
+        NotificationMetadata: { Ref: NotificationMetadata }
+        NotificationTargetARN: { Ref: SnsARN }
+        RoleARN: { Ref: RoleARN }
+      - DefaultResult: CONTINUE
+        HeartbeatTimeout: 900
+        LifecycleHookName: remove-node
+        LifecycleTransition: autoscaling:EC2_INSTANCE_TERMINATING
+        NotificationMetadata: { Ref: NotificationMetadata }
+        NotificationTargetARN: { Ref: SnsARN }
+        RoleARN: { Ref: RoleARN }
+      LoadBalancerNames: { Ref: LoadBalancerNames }
+      MaxSize: { Ref: MaxSize }
+      MinSize: { Ref: MinSize }
+      DesiredCapacity: { Ref: MinSize }
+      VPCZoneIdentifier: { Ref: VPCZoneId }
+      Tags:
+      - Key: Name
+        Value: { Ref: Name }
+        PropagateAtLaunch: true
+    UpdatePolicy:
+      AutoScalingRollingUpdate:
+        MinInstancesInService: { Ref: MinSize }
+        MaxBatchSize: 1
+        PauseTime: PT30S
+Outputs:
+  id:
+    Description: ASG Id
+    Value: { Ref: ASG }
+  bucket:
+    Description: Bucket name to pass down the TF line
+    Value: { Ref: Bucket }
