@@ -3,5 +3,5 @@ output "rancher_url" {
 }
 
 output "s3 bucket" {
-  value = "s3://${aws_s3_bucket.bucket.name}"
+  value = "s3://${aws_s3_bucket.bucket.id}"
 }
