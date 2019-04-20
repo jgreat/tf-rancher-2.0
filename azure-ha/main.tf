@@ -7,7 +7,7 @@ data "azurerm_subnet" "rancher" {
 }
 
 resource "azurerm_resource_group" "rancher" {
-  name    = "${var.rg}"
+  name     = "${var.rg}"
   location = "${var.region}"
 }
 
@@ -15,10 +15,11 @@ resource "azurerm_resource_group" "rancher" {
 resource "random_string" "sa_id" {
   length  = 4
   special = false
+  upper   = false
 }
 
 resource "azurerm_storage_account" "rancher" {
-  name                     = "${var.rg}-sa-${random_string.sa_id.result}"
+  name                     = "${var.rg}sa${random_string.sa_id.result}"
   location                 = "${azurerm_resource_group.rancher.location}"
   resource_group_name      = "${azurerm_resource_group.rancher.name}"
   account_tier             = "Standard"
@@ -34,11 +35,11 @@ resource "azurerm_availability_set" "rancher" {
 }
 
 resource "azurerm_public_ip" "rancher" {
-  count                        = "${var.vm_count}"
-  name                         = "${var.rg}-pip-${count.index}"
-  location                     = "${azurerm_resource_group.rancher.location}"
-  resource_group_name          = "${azurerm_resource_group.rancher.name}"
-  public_ip_address_allocation = "static"
+  count               = "${var.vm_count}"
+  name                = "${var.rg}-pip-${count.index}"
+  location            = "${azurerm_resource_group.rancher.location}"
+  resource_group_name = "${azurerm_resource_group.rancher.name}"
+  allocation_method   = "Static"
 }
 
 resource "azurerm_network_security_group" "rancher" {
@@ -46,7 +47,7 @@ resource "azurerm_network_security_group" "rancher" {
   location            = "${azurerm_resource_group.rancher.location}"
   resource_group_name = "${azurerm_resource_group.rancher.name}"
 
-  security_rule {
+  security_rule = {
     name                       = "allow_ssh"
     priority                   = 100
     direction                  = "Inbound"
@@ -58,7 +59,7 @@ resource "azurerm_network_security_group" "rancher" {
     destination_address_prefix = "*"
   }
 
-  security_rule {
+  security_rule = {
     name                       = "allow_ingress"
     priority                   = 110
     direction                  = "Inbound"
@@ -70,7 +71,7 @@ resource "azurerm_network_security_group" "rancher" {
     destination_address_prefix = "*"
   }
 
-  security_rule {
+  security_rule = {
     name                       = "allow_k8s_api"
     priority                   = 120
     direction                  = "Inbound"
@@ -91,7 +92,7 @@ resource "azurerm_network_interface" "rancher" {
 
   network_security_group_id = "${azurerm_network_security_group.rancher.id}"
 
-  ip_configuration {
+  ip_configuration = {
     name                          = "ip-configuration-1"
     subnet_id                     = "${data.azurerm_subnet.rancher.id}"
     public_ip_address_id          = "${element(azurerm_public_ip.rancher.*.id, count.index)}"
@@ -113,14 +114,14 @@ resource "azurerm_virtual_machine" "rancher" {
 
   network_interface_ids = ["${element(azurerm_network_interface.rancher.*.id, count.index)}"]
 
-  storage_image_reference {
+  storage_image_reference = {
     publisher = "Canonical"
     offer     = "UbuntuServer"
-    sku       = "16.04-LTS"
+    sku       = "18.04-LTS"
     version   = "latest"
   }
 
-  storage_os_disk {
+  storage_os_disk = {
     name              = "${var.rg}-vm-${count.index}-osDisk"
     caching           = "ReadWrite"
     create_option     = "FromImage"
@@ -128,31 +129,23 @@ resource "azurerm_virtual_machine" "rancher" {
     disk_size_gb      = 128
   }
 
-  os_profile {
+  os_profile = {
     computer_name  = "${var.rg}-vm-${count.index}"
     admin_username = "rancher"
-    user_data = "${file("ubuntu-cloud-config.yaml")}"
+    custom_data    = "${file("ubuntu-cloud-config.yaml")}"
   }
 
-  os_profile_linux_config {
+  os_profile_linux_config = {
     disable_password_authentication = true
 
-    ssh_keys {
+    ssh_keys = {
       key_data = "${file("~/.ssh/id_rsa.pub")}"
       path     = "/home/rancher/.ssh/authorized_keys"
     }
   }
 
-  boot_diagnostics {
-    enabled = true
+  boot_diagnostics = {
+    enabled     = true
     storage_uri = "${azurerm_storage_account.rancher.primary_blob_endpoint}"
   }
-}
-
-output "public_ips" {
-  value = "${azurerm_public_ip.rancher.*.ip_address}"
-}
-
-output "private_ips" {
-  value = "${azurerm_network_interface.rancher.*.private_ip_address}"
 }

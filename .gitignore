@@ -8,5 +8,6 @@
 
 # Rke files
 rke.log.out
-kube_config_cluster.yml
+kube_config_*.yml
 cluster.yml
+*.rkestate
