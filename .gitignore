@@ -11,3 +11,4 @@ rke.log.out
 kube_config_*.yml
 cluster.yml
 *.rkestate
+outputs/

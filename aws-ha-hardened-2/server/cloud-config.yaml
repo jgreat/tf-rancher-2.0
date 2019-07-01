@@ -1,0 +1,61 @@
+#cloud-config
+bootcmd:
+- apt-get update
+- apt-get install -y apt-transport-https
+apt:
+  sources:
+    docker:
+      source: "deb [arch=amd64] https://download.docker.com/linux/ubuntu $RELEASE stable"
+      keyid: 0EBFCD88
+packages:
+- docker-ce
+- jq
+runcmd:
+- usermod -G docker -a ubuntu
+# required for protect-kernel-defaults: "true" kubelet
+- sysctl -w vm.overcommit_memory=1
+- sysctl -w kernel.panic=10
+- sysctl -w kernel.panic_on_oops=1
+write_files:
+- path: /opt/kubernetes/admission.yaml
+  owner: root:root
+  permissions: '0600'
+  content: |
+    apiVersion: apiserver.k8s.io/v1alpha1
+    kind: AdmissionConfiguration
+    plugins:
+    - name: EventRateLimit
+      path: /opt/kubernetes/event.yaml
+- path: /opt/kubernetes/event.yaml
+  owner: root:root
+  permissions: '0600'
+  content: |
+    apiVersion: eventratelimit.admission.k8s.io/v1alpha1
+    kind: Configuration
+    limits:
+    - type: Server
+      qps: 5000
+      burst: 20000
+- path: /opt/kubernetes/encryption.yaml
+  owner: root:root
+  permissions: '0600'
+  content: |
+    apiVersion: apiserver.config.k8s.io/v1
+    kind: EncryptionConfiguration
+    resources:
+      - resources:
+        - secrets
+        providers:
+        - aescbc:
+            keys:
+            - name: key1
+              secret: QRCexFindur3dzS0P/UmHs5xA6sKu58RbtWOQFarfh4=
+        - identity: {}
+- path: /opt/kubernetes/audit.yaml
+  owner: root:root
+  permissions: '0600'
+  content: |
+    apiVersion: audit.k8s.io/v1beta1
+    kind: Policy
+    rules:
+    - level: Metadata

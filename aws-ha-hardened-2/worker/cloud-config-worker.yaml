@@ -1,0 +1,28 @@
+#cloud-config
+bootcmd:
+- apt-get update
+- apt-get install -y apt-transport-https
+apt:
+  sources:
+    docker:
+      source: "deb [arch=amd64] https://download.docker.com/linux/ubuntu $RELEASE stable"
+      keyid: 0EBFCD88
+packages:
+- docker-ce
+- jq
+runcmd:
+- usermod -G docker -a ubuntu
+# required for protect-kernel-defaults: "true" kubelet
+- sysctl -w vm.overcommit_memory=1
+- sysctl -w kernel.panic=10
+- sysctl -w kernel.panic_on_oops=1
+- return=1; while [ $return != 0 ]; do sleep 2; docker ps; return=$?; done
+- ${agent_cmd} --worker
+write_files:
+- path: /etc/sysctl.d/kubelet.conf
+  owner: root:root
+  permissions: '0644'
+  content: |
+    vm.overcommit_memory=1
+    kernel.panic=10
+    kernel.panic_on_oops=1
