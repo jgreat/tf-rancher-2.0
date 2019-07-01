@@ -1,4 +1,4 @@
-# Pen-Test Environment
+# Hardened V2
 
 Sets up Rancher server as a (mostly) best-practices k8s cluster.
 
